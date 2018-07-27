@@ -224,7 +224,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
     private var _started: S? = null
 
     private fun <T : Any> T.tokenize(): T {
-        tokenizableServices?.add(this) ?: throw IllegalStateException("The tokenisable services list has already been finialised")
+        tokenizableServices?.add(this) ?: throw IllegalStateException("The tokenisable services list has already been finalised")
         return this
     }
 
@@ -243,10 +243,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
 
     private fun initKeyStore(): X509Certificate {
         if (configuration.devMode) {
-            log.warn("The Corda node is running in developer mode. This is not suitable for production usage.")
             configuration.configureWithDevSSLCertificate()
-        } else {
-            log.info("The Corda node is running in production mode. If this is a developer environment you can set 'devMode=true' in the node.conf file.")
         }
         return validateKeyStore()
     }
@@ -325,12 +322,12 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
         }
 
         val (nodeInfo, signedNodeInfo) = nodeInfoAndSigned
+        services.start(nodeInfo, netParams)
         networkMapUpdater.start(trustRoot, signedNetParams.raw.hash, signedNodeInfo.raw.hash)
         startMessagingService(rpcOps, nodeInfo, myNotaryIdentity, netParams)
 
         // Do all of this in a database transaction so anything that might need a connection has one.
         return database.transaction {
-            services.start(nodeInfo, netParams)
             identityService.loadIdentities(nodeInfo.legalIdentitiesAndCerts)
             attachments.start()
             cordappProvider.start(netParams.whitelistedContractImplementations)
@@ -740,7 +737,7 @@ abstract class AbstractNode<S>(val configuration: NodeConfiguration,
     protected open fun startDatabase() {
         val props = configuration.dataSourceProperties
         if (props.isEmpty) throw DatabaseConfigurationException("There must be a database configured.")
-        database.hikariStart(props)
+        database.startHikariPool(props)
         // Now log the vendor string as this will also cause a connection to be tested eagerly.
         logVendorString(database, log)
     }
@@ -1003,7 +1000,7 @@ fun configureDatabase(hikariProperties: Properties,
                       wellKnownPartyFromAnonymous: (AbstractParty) -> Party?,
                       schemaService: SchemaService = NodeSchemaService()): CordaPersistence {
     val persistence = createCordaPersistence(databaseConfig, wellKnownPartyFromX500Name, wellKnownPartyFromAnonymous, schemaService, hikariProperties)
-    persistence.hikariStart(hikariProperties)
+    persistence.startHikariPool(hikariProperties)
     return persistence
 }
 
@@ -1022,7 +1019,7 @@ fun createCordaPersistence(databaseConfig: DatabaseConfig,
     return CordaPersistence(databaseConfig, schemaService.schemaOptions.keys, jdbcUrl, attributeConverters)
 }
 
-fun CordaPersistence.hikariStart(hikariProperties: Properties) {
+fun CordaPersistence.startHikariPool(hikariProperties: Properties) {
     try {
         start(DataSourceFactory.createDataSource(hikariProperties))
     } catch (ex: Exception) {
